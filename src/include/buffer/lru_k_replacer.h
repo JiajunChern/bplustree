@@ -16,6 +16,7 @@
 #include <list>
 #include <mutex>  // NOLINT
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 #include "common/config.h"
@@ -152,10 +153,17 @@ class LRUKReplacer {
   // Remove maybe_unused if you start using them.
   [[maybe_unused]] std::unordered_map<frame_id_t, LRUKNode> node_store_;
   [[maybe_unused]] size_t current_timestamp_{0};
-  [[maybe_unused]] size_t curr_size_{0};
-  [[maybe_unused]] size_t replacer_size_;
-  [[maybe_unused]] size_t k_;
-  [[maybe_unused]] std::mutex latch_;
+  size_t curr_size_{0};
+  size_t replacer_size_;
+  size_t k_;
+  std::mutex latch_;
+
+  // history_list_ (LRU), inf_history_list_ (FIFO)
+  std::list<frame_id_t> history_list_{}, inf_history_list_{};
+  // to accelerate list search
+  std::unordered_map<frame_id_t, std::list<frame_id_t>::iterator> history_iter_map_{}, inf_history_iter_map_{};
+  std::unordered_map<frame_id_t, size_t> count_map_{};
+  std::unordered_set<frame_id_t> non_evictable_set_{};
 };
 
 }  // namespace bustub

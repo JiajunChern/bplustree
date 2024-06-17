@@ -116,6 +116,16 @@ class BPlusTree {
   // read data from file and remove one by one
   void RemoveFromFile(const std::string &file_name, Transaction *txn = nullptr);
 
+ protected:
+  // Get the root read guard, with the read guard of HeaderPage required.
+  auto GetRootGuardRead(Context *ctx = nullptr) const -> std::optional<ReadPageGuard>;
+
+  // helper function that find key exist in InternalPage/LeafPage or not, if exist return true and store key's index.
+  auto GetIndexOfInternalPage(Context *ctx, const KeyType &key) -> int;
+
+  // helper function that find key exist in InternalPage/LeafPage or not, if exist return true and store key's index.
+  auto GetValueOfLeafPage(Context *ctx, const KeyType &key, std::vector<ValueType> *result) -> std::tuple<bool, int>;
+
  private:
   /* Debug Routines for FREE!! */
   void ToGraph(page_id_t page_id, const BPlusTreePage *page, std::ofstream &out);

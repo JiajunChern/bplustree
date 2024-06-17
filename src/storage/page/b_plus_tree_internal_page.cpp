@@ -24,7 +24,11 @@ namespace bustub {
  * Including set page type, set current size, and set max page size
  */
 INDEX_TEMPLATE_ARGUMENTS
-void B_PLUS_TREE_INTERNAL_PAGE_TYPE::Init(int max_size) {}
+void B_PLUS_TREE_INTERNAL_PAGE_TYPE::Init(int max_size) {
+  SetPageType(IndexPageType::INTERNAL_PAGE);
+  SetMaxSize(max_size);
+  SetSize(0);
+}
 /*
  * Helper method to get/set the key associated with input "index"(a.k.a
  * array offset)
@@ -32,19 +36,49 @@ void B_PLUS_TREE_INTERNAL_PAGE_TYPE::Init(int max_size) {}
 INDEX_TEMPLATE_ARGUMENTS
 auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::KeyAt(int index) const -> KeyType {
   // replace with your own code
-  KeyType key{};
+  BUSTUB_ASSERT(index >= 0 && index < GetSize(), "Invalid page index!");
+  KeyType key = array_[index].first;
   return key;
 }
 
 INDEX_TEMPLATE_ARGUMENTS
-void B_PLUS_TREE_INTERNAL_PAGE_TYPE::SetKeyAt(int index, const KeyType &key) {}
+void B_PLUS_TREE_INTERNAL_PAGE_TYPE::SetKeyAt(int index, const KeyType &key) {
+  BUSTUB_ASSERT(index >= 0 && index < GetSize(), "Invalid page index!");
+  array_[index].first = key;
+}
 
 /*
  * Helper method to get the value associated with input "index"(a.k.a array
  * offset)
  */
 INDEX_TEMPLATE_ARGUMENTS
-auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::ValueAt(int index) const -> ValueType { return 0; }
+auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::ValueAt(int index) const -> ValueType {
+  BUSTUB_ASSERT(index >= 0 && index < GetSize(), "Invalid page index!");
+  ValueType value = array_[index].second;
+  return value;
+}
+
+INDEX_TEMPLATE_ARGUMENTS
+auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::Insert(int index, const KeyType &key, const ValueType &value) -> void {
+  int size = GetSize();
+  if (size != index) {
+    memmove(reinterpret_cast<void *>(&array_[index + 1]), reinterpret_cast<void *>(&(array_[index])),
+            (size - index) * sizeof(MappingType));
+  }
+  array_[index].first = key;
+  array_[index].second = value;
+  IncreaseSize(1);
+}
+
+INDEX_TEMPLATE_ARGUMENTS
+void B_PLUS_TREE_INTERNAL_PAGE_TYPE::Delete(int index) {
+  BUSTUB_ASSERT(index >= 0 && index < GetSize(), "Invalid page index!");
+
+  int size = GetSize();
+  memmove(reinterpret_cast<void *>(&array_[index]), reinterpret_cast<void *>(&(array_[index + 1])),
+          (size - index - 1) * sizeof(MappingType));
+  IncreaseSize(-1);
+}
 
 // valuetype for internalNode should be page id_t
 template class BPlusTreeInternalPage<GenericKey<4>, page_id_t, GenericComparator<4>>;

@@ -99,6 +99,10 @@ class BPlusTreeInternalPage : public BPlusTreePage {
     return kstr;
   }
 
+  void Insert(int index, const KeyType &key, const ValueType &value);
+
+  void Delete(int index);
+
  private:
   // Flexible array member for page data.
   MappingType array_[0];

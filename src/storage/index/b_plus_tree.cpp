@@ -26,7 +26,8 @@ BPLUSTREE_TYPE::BPlusTree(std::string name, page_id_t header_page_id, BufferPool
  * Helper function to decide whether current b+tree is empty
  */
 INDEX_TEMPLATE_ARGUMENTS
-auto BPLUSTREE_TYPE::IsEmpty() const -> bool { return true; }
+auto BPLUSTREE_TYPE::IsEmpty() const -> bool { return !GetRootGuardRead(); }
+
 /*****************************************************************************
  * SEARCH
  *****************************************************************************/
@@ -39,8 +40,32 @@ INDEX_TEMPLATE_ARGUMENTS
 auto BPLUSTREE_TYPE::GetValue(const KeyType &key, std::vector<ValueType> *result, Transaction *txn) -> bool {
   // Declaration of context instance.
   Context ctx;
-  (void)ctx;
-  return false;
+  auto root_guard = GetRootGuardRead();
+  if (!root_guard) {
+    return false;
+  }
+  ctx.read_set_.emplace_back(std::move(root_guard.value()));
+
+  // 递归寻找叶子节点
+  std::function<bool(const KeyType &, std::vector<ValueType> *, Context *, const KeyComparator &)> get_value_func =
+      [&](const KeyType &key, std::vector<ValueType> *result, Context *ctx, const KeyComparator &comparator) -> bool {
+    auto cur_page = ctx->read_set_.back().As<BPlusTreePage>();
+    // Current page is leaf page
+    if (cur_page->IsLeafPage()) {
+      auto [is_found, _] = GetValueOfLeafPage(ctx, key, result);
+      ctx->read_set_.pop_back();
+      return is_found;
+    }
+    auto internal_page = reinterpret_cast<const InternalPage *>(cur_page);
+    auto next_search_index = GetIndexOfInternalPage(ctx, key);
+    ctx->read_set_.pop_back();  // Release the read guard immediately
+    auto next_page_id = internal_page->ValueAt(next_search_index);
+    auto next_guard = bpm_->FetchPageRead(next_page_id);
+    ctx->read_set_.emplace_back(std::move(next_guard));
+    return get_value_func(key, result, ctx, comparator);
+  };
+
+  return get_value_func(key, result, &ctx, comparator_);
 }
 
 /*****************************************************************************
@@ -109,7 +134,11 @@ auto BPLUSTREE_TYPE::End() -> INDEXITERATOR_TYPE { return INDEXITERATOR_TYPE(); 
  * @return Page id of the root of this tree
  */
 INDEX_TEMPLATE_ARGUMENTS
-auto BPLUSTREE_TYPE::GetRootPageId() -> page_id_t { return 0; }
+auto BPLUSTREE_TYPE::GetRootPageId() -> page_id_t {
+  ReadPageGuard header_guard = bpm_->FetchPageRead(header_page_id_);
+  auto header_page = header_guard.As<BPlusTreeHeaderPage>();
+  return header_page->root_page_id_;
+}
 
 /*****************************************************************************
  * UTILITIES AND DEBUG
@@ -332,6 +361,88 @@ auto BPLUSTREE_TYPE::ToPrintableBPlusTree(page_id_t root_id) -> PrintableBPlusTr
   }
 
   return proot;
+}
+INDEX_TEMPLATE_ARGUMENTS
+auto BPLUSTREE_TYPE::GetRootGuardRead(Context *ctx) const -> std::optional<ReadPageGuard> {
+  ReadPageGuard header_guard = bpm_->FetchPageRead(header_page_id_);
+  auto header_page = header_guard.As<BPlusTreeHeaderPage>();
+  if (header_page->root_page_id_ == INVALID_PAGE_ID) {
+    return std::nullopt;
+  }
+  if (ctx != nullptr) {
+    ctx->root_page_id_ = header_page->root_page_id_;
+  }
+  auto root_guard = bpm_->FetchPageRead(header_page->root_page_id_);
+  auto root_page = root_guard.As<BPlusTreePage>();
+  auto is_empty = root_page->IsLeafPage() && root_page->GetSize() == 0;
+  return is_empty ? std::nullopt : std::make_optional<ReadPageGuard>(std::move(root_guard));
+}
+
+INDEX_TEMPLATE_ARGUMENTS
+auto BPLUSTREE_TYPE::GetIndexOfInternalPage(Context *ctx, const KeyType &key) -> int {
+  auto cur_page = ctx->read_set_.back().As<InternalPage>();
+  int size = cur_page->GetSize();
+  BUSTUB_ASSERT(size > 1, "Size of key must greater than one!");
+
+  if (comparator_(key, cur_page->KeyAt(1)) < 0) {
+    return 0;
+  }
+
+  if (comparator_(key, cur_page->KeyAt(size - 1)) >= 0) {
+    return size - 1;
+  }
+
+  int left = 1;
+  int right = size - 1;
+  while (left < right) {
+    int mid = left + (right - left) / 2;
+    if (comparator_(key, cur_page->KeyAt(mid)) < 0) {
+      right = mid - 1;
+    } else if (comparator_(key, cur_page->KeyAt(mid + 1)) >= 0) {
+      left = mid + 1;
+    } else {
+      return mid;
+    }
+  }
+
+  return left;
+}
+
+INDEX_TEMPLATE_ARGUMENTS
+auto BPLUSTREE_TYPE::GetValueOfLeafPage(Context *ctx, const KeyType &key, std::vector<ValueType> *result)
+    -> std::tuple<bool, int> {
+  auto cur_page = ctx->read_set_.back().As<LeafPage>();
+  auto cur_size = cur_page->GetSize();
+  if (cur_size == 0) {
+    return {false, 0};
+  }
+
+  int left = 0;
+  int right = cur_size;
+  while (left < right) {
+    int mid = left + (right - left) / 2;
+    auto mid_key = cur_page->KeyAt(mid);
+    if (comparator_(mid_key, key) > 0) {
+      right = mid;
+    } else if (comparator_(mid_key, key) < 0) {
+      left = mid + 1;
+    } else {
+      if (result) {
+        result->push_back(cur_page->ValueAt(mid));
+      }
+      return {true, mid};
+    }
+  }
+
+  if (left == cur_size) {
+    return {false, cur_size};
+  }
+
+  if (comparator_(cur_page->KeyAt(left), key) == 0) {
+    return {true, left};
+  }
+
+  return {false, left};
 }
 
 template class BPlusTree<GenericKey<4>, RID, GenericComparator<4>>;

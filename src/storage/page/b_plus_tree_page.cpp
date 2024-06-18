@@ -46,5 +46,18 @@ auto BPlusTreePage::GetMinSize() const -> int {
   // Internal Page stores an ordered m key entries and m+1 child pointers
   return (max_size_ + 1) / 2;
 }
+// auto BPlusTreePage::GetMinSize() const -> int {
+//   int min_size{};
+//   if (IsLeafPage()) {
+//     if (max_size_ % 2 == 0) {
+//       min_size = max_size_ / 2;
+//     } else {
+//       min_size = max_size_ / 2 + 1;
+//     }
+//   } else {
+//     min_size = (max_size_ - 1) / 2 + 1;
+//   }
+//   return min_size;
+// }
 
 }  // namespace bustub

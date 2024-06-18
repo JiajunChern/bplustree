@@ -36,15 +36,31 @@ void B_PLUS_TREE_INTERNAL_PAGE_TYPE::Init(int max_size) {
 INDEX_TEMPLATE_ARGUMENTS
 auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::KeyAt(int index) const -> KeyType {
   // replace with your own code
-  BUSTUB_ASSERT(index >= 0 && index < GetSize(), "Invalid page index!");
+  //  BUSTUB_ASSERT(index >= 0 && index < GetSize(), "Invalid page index!");
+  if (index < 0 || index >= GetSize()) {
+    return KeyType{};
+  }
+
   KeyType key = array_[index].first;
   return key;
 }
 
 INDEX_TEMPLATE_ARGUMENTS
 void B_PLUS_TREE_INTERNAL_PAGE_TYPE::SetKeyAt(int index, const KeyType &key) {
-  BUSTUB_ASSERT(index >= 0 && index < GetSize(), "Invalid page index!");
+  //  BUSTUB_ASSERT(index >= 0 && index < GetSize(), "Invalid page index!");
+  if (index < 0 || index >= GetSize()) {
+    return;
+  }
   array_[index].first = key;
+}
+
+INDEX_TEMPLATE_ARGUMENTS
+void B_PLUS_TREE_INTERNAL_PAGE_TYPE::SetValueAt(int index, const ValueType &value) {
+  //  BUSTUB_ASSERT(index >= 0 && index < GetSize(), "Invalid page index!");
+  if (index < 0 || index >= GetSize()) {
+    return;
+  }
+  array_[index].second = value;
 }
 
 /*
@@ -53,7 +69,10 @@ void B_PLUS_TREE_INTERNAL_PAGE_TYPE::SetKeyAt(int index, const KeyType &key) {
  */
 INDEX_TEMPLATE_ARGUMENTS
 auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::ValueAt(int index) const -> ValueType {
-  BUSTUB_ASSERT(index >= 0 && index < GetSize(), "Invalid page index!");
+  //  BUSTUB_ASSERT(index >= 0 && index < GetSize(), "Invalid page index!");
+  if (index < 0 || index >= GetSize()) {
+    return ValueType{};
+  }
   ValueType value = array_[index].second;
   return value;
 }

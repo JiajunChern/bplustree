@@ -147,10 +147,6 @@ class BPlusTree {
   auto ToPrintableBPlusTree(page_id_t root_id) -> PrintableBPlusTree;
 
   // helper function that find key exist in InternalPage/LeafPage or not, if exist return true and store key's index.
-  auto SearchValueOfKey(Context<KeyType> &ctx, page_id_t page_id, const KeyType &key, std::vector<ValueType> *result)
-      -> bool;
-
-  // helper function that find key exist in InternalPage/LeafPage or not, if exist return true and store key's index.
   auto BinarySearchOfInternalPage(const InternalPage *cur_page, const KeyType &key) -> int;
 
   // helper function that find key exist in InternalPage/LeafPage or not, if exist return true and store key's index.

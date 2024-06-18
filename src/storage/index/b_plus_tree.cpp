@@ -58,7 +58,27 @@ auto BPLUSTREE_TYPE::GetValue(const KeyType &key, std::vector<ValueType> *result
   ReadPageGuard header_guard = bpm_->FetchPageRead(header_page_id_);
   auto header_page = header_guard.As<BPlusTreeHeaderPage>();
 
-  return SearchValueOfKey(ctx, header_page->root_page_id_, key, result);
+  std::function<bool(page_id_t)> search_func = [&](page_id_t page_id) -> bool {
+    auto page_read_guard = bpm_->FetchPageRead(page_id);
+    auto cur_page = page_read_guard.template As<BPlusTreePage>();
+    if (cur_page->IsLeafPage() && cur_page->GetSize() == 0) {
+      return false;
+    }
+    // ctx.read_set_.push_back(std::move(page_read_guard));
+
+    if (cur_page->IsLeafPage()) {
+      const auto *leaf_page = page_read_guard.template As<LeafPage>();
+      // auto leaf_page = reinterpret_cast<const LeafPage*>(cur_page);
+      return BinarySearchOfLeafPage(leaf_page, key, result).first;
+    }
+
+    const auto *internal_page = page_read_guard.template As<InternalPage>();
+    // auto internal_page = reinterpret_cast<const InternalPage*>(cur_page);
+    auto child_page_index = BinarySearchOfInternalPage(internal_page, key);
+    return search_func(internal_page->ValueAt(child_page_index));
+  };
+
+  return search_func(header_page->root_page_id_);
 }
 
 /*****************************************************************************
@@ -396,30 +416,6 @@ auto BPLUSTREE_TYPE::ToPrintableBPlusTree(page_id_t root_id) -> PrintableBPlusTr
   }
 
   return proot;
-}
-
-INDEX_TEMPLATE_ARGUMENTS
-auto BPLUSTREE_TYPE::SearchValueOfKey(Context<KeyType> &ctx, page_id_t page_id, const KeyType &key,
-                                      std::vector<ValueType> *result) -> bool {
-  auto page_read_guard = bpm_->FetchPageRead(page_id);
-  auto cur_page = page_read_guard.template As<BPlusTreePage>();
-  if (cur_page->IsLeafPage() && cur_page->GetSize() == 0) {
-    return false;
-  }
-  // ctx.read_set_.push_back(std::move(page_read_guard));
-
-  if (cur_page->IsLeafPage()) {
-    const auto *leaf_page = page_read_guard.template As<LeafPage>();
-    // auto leaf_page = reinterpret_cast<const LeafPage*>(cur_page);
-    return BinarySearchOfLeafPage(leaf_page, key, result).first;
-  }
-
-  const auto *internal_page = page_read_guard.template As<InternalPage>();
-  // auto internal_page = reinterpret_cast<const InternalPage*>(cur_page);
-  auto child_page_index = BinarySearchOfInternalPage(internal_page, key);
-  return SearchValueOfKey(ctx, internal_page->ValueAt(child_page_index), key, result);
-
-  return true;
 }
 
 INDEX_TEMPLATE_ARGUMENTS

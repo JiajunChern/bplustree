@@ -48,7 +48,6 @@ void B_PLUS_TREE_LEAF_PAGE_TYPE::SetNextPageId(page_id_t next_page_id) { next_pa
  */
 INDEX_TEMPLATE_ARGUMENTS
 auto B_PLUS_TREE_LEAF_PAGE_TYPE::KeyAt(int index) const -> KeyType {
-  //  BUSTUB_ASSERT(GetSize() < GetMaxSize() && index < GetMaxSize(), "Invalid insert index!");
   if (index < 0 || index >= GetSize()) {
     return KeyType{};
   }
